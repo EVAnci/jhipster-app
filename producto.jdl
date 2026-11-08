@@ -1,0 +1,6 @@
+entity Producto {
+  nombre String required
+  precio BigDecimal required min(0)
+}
+
+skipClient Producto
