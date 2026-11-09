@@ -1,0 +1,56 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.6
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    mem_limit: 1536m
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    restart: "no"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.5.6
+    environment:
+      LS_JAVA_OPTS: "-Xms256m -Xmx256m"
+      PIPELINE_WORKERS: "1"
+      XPACK_MONITORING_ENABLED: "false"
+    mem_limit: 1024m
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      - elasticsearch
+    restart: "no"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.5.6
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    mem_limit: 256m
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ../logs:/var/log/jhipster:ro
+      - filebeat-data:/usr/share/filebeat/data
+    depends_on:
+      - logstash
+    restart: "no"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+volumes:
+  es-data:
+  filebeat-data:

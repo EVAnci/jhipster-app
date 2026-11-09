@@ -1,0 +1,11 @@
+filebeat.inputs:
+  - type: filestream
+    id: jhipster-logs
+    enabled: true
+    paths:
+      - /var/log/jhipster/jhipster.json
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: info
