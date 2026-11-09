@@ -1,171 +1,124 @@
-# gestionlogs
+# Gestión de logs
 
-This application was generated using JHipster 9.4.0, you can find documentation and help at [https://www.jhipster.tech/documentation-archive/v9.4.0](https://www.jhipster.tech/documentation-archive/v9.4.0).
+Aplicación monolítica desarrollada con **Spring Boot** (generada inicialmente con **JHipster**) para demostrar la gestión centralizada de logs. Expone una API REST con un CRUD de productos y genera eventos estructurados en JSON mediante **Logback**, que luego pueden ser recolectados y analizados con **Filebeat, Logstash, Elasticsearch y Kibana**.
 
-## Project Structure
+## Arquitectura
 
-Node is required for generation and recommended for development. `package.json` is always generated for a better development experience with prettier, commit hooks, scripts and so on.
+La aplicación sigue una organización **por capas**:
 
-In the project root, JHipster generates configuration files for tools like git, prettier, eslint, husky, and others that are well known and you can find references in the web.
+- **Presentación/API REST:** `web/rest/ProductoResource.java`, con los endpoints de productos.
+- **Persistencia:** `repository/ProductoRepository.java`, que accede a la base de datos mediante Spring Data JPA.
+- **Dominio:** `domain/Producto.java`, que define la entidad `Producto` (`id`, `nombre`, `precio`).
+- **Servicios de apoyo:** `service/LogGenerator.java`, que genera eventos de ejemplo para el laboratorio.
 
-`/src/*` structure follows default Java structure.
+Para desarrollo se utiliza **H2 en memoria**, **Liquibase** para las migraciones y **JWT** para proteger la API. El logging está configurado en `src/main/resources/logback-spring.xml` y escribe eventos JSON, uno por línea, en `logs/jhipster.json`.
 
-- `.yo-rc.json` - Yeoman configuration file
-  JHipster configuration is stored in this file at `generator-jhipster` key. You may find `generator-jhipster-*` for specific blueprints configuration.
-- `.yo-resolve` (optional) - Yeoman conflict resolver
-  Allows to use a specific action when conflicts are found skipping prompts for files that matches a pattern. Each line should match `[pattern] [action]` with pattern been a [Minimatch](https://github.com/isaacs/minimatch#minimatch) pattern and action been one of skip (default if omitted) or force. Lines starting with `#` are considered comments and are ignored.
-- `.jhipster/*.json` - JHipster entity configuration files
-- `/src/main/docker` - Docker configurations for the application and services that the application depends on
+La infraestructura de observabilidad se encuentra en [`observability/`](observability/README.md) y funciona de forma independiente: **JHipster → archivo JSON → Filebeat → Logstash → Elasticsearch → Kibana**.
 
-## Development
+## Build y ejecución
 
-To start your application in the dev profile, run:
+Desde la raíz del proyecto, iniciar la aplicación con el perfil de desarrollo:
 
 ```bash
 ./mvnw
 ```
 
-For further instructions on how to develop with JHipster, have a look at [Using JHipster in development][].
+El _Maven Wrapper_ (`mvnw`) permite compilar y ejecutar el proyecto con la versión de Maven prevista, sin instalar Maven manualmente. Se necesita un JDK compatible con el proyecto (configurado para **Java 21**).
 
-## Building for production
-
-### Packaging as jar
-
-To build the final jar and optimize the gestionlogs application for production, run:
+La API se publica en `http://localhost:8080`. Para comprobar que la aplicación está activa:
 
 ```bash
-./mvnw -Pprod clean verify
+curl -i http://localhost:8080/management/health
 ```
 
-To ensure everything worked, run:
-
-```bash
-java -jar target/*.jar
-```
-
-Refer to [Using JHipster in production][] for more details.
-
-### Packaging as war
-
-To package your application as a war in order to deploy it to an application server, run:
-
-```bash
-./mvnw -Pprod,war clean verify
-```
-
-### JHipster Control Center
-
-JHipster Control Center can help you manage and control your application(s). You can start a local control center server (accessible on http://localhost:7419) with:
-
-```bash
-docker compose -f src/main/docker/jhipster-control-center.yml up
-```
-
-## Testing
-
-### Spring Boot tests
-
-To launch your application's tests, run:
+Para compilar y ejecutar los tests:
 
 ```bash
 ./mvnw verify
 ```
 
-## Others
-
-### Code quality using Sonar
-
-Sonar is used to analyse code quality. You can start a local Sonar server (accessible on http://localhost:9001) with:
+Para generar un JAR de producción:
 
 ```bash
-docker compose -f src/main/docker/sonar.yml up -d
+./mvnw -Pprod clean verify
 ```
 
-Note: we have turned off forced authentication redirect for UI in [src/main/docker/sonar.yml](src/main/docker/sonar.yml) for out of the box experience while trying out SonarQube, for real use cases turn it back on.
+> Para la demostración del TP se utiliza el perfil de desarrollo. La base H2 es **en memoria**: los cambios pueden perderse al reiniciar la aplicación. No es necesario construir un JAR de producción para ejecutar las pruebas de observabilidad.
 
-You can run a Sonar analysis with using the [sonar-scanner](https://docs.sonarqube.org/display/SCAN/Analyzing+with+SonarQube+Scanner) or by using the maven plugin.
+## Ejemplos con `curl`
 
-Then, run a Sonar analysis:
+Los endpoints `/api/productos` requieren un **JWT**. Primero obtenerlo con una cuenta de prueba válida; no colocar contraseñas ni tokens reales en el README ni en Git.
 
 ```bash
-./mvnw -Pprod clean verify sonar:sonar -Dsonar.login=admin -Dsonar.password=admin
+read -r -p 'Usuario: ' USUARIO
+read -r -s -p 'Contraseña: ' CLAVE; echo
+TOKEN=$(curl -fsS http://localhost:8080/api/authenticate \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg u "$USUARIO" --arg p "$CLAVE" '{username:$u,password:$p,rememberMe:false}')" \
+  | jq -r '.id_token')
+unset CLAVE
 ```
 
-If you need to re-run the Sonar phase, please be sure to specify at least the `initialize` phase since Sonar properties are loaded from the sonar-project.properties file.
+Estos ejemplos requieren `jq` para construir el JSON de autenticación y leer la respuesta. Ejecutar los siguientes comandos **en la misma terminal**, para reutilizar `$TOKEN`.
+
+### Listar productos
 
 ```bash
-./mvnw initialize sonar:sonar -Dsonar.login=admin -Dsonar.password=admin
+curl -i http://localhost:8080/api/productos \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-Additionally, Instead of passing `sonar.password` and `sonar.login` as CLI arguments, these parameters can be configured from [sonar-project.properties](sonar-project.properties) as shown below:
+### Crear un producto
 
 ```bash
-sonar.login=admin
-sonar.password=admin
+curl -i -X POST http://localhost:8080/api/productos \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"nombre":"Cuaderno","precio":2500.00}'
 ```
 
-For more information, refer to the [Code quality page][].
-
-### Docker Compose support
-
-JHipster generates a number of Docker Compose configuration files in the [src/main/docker/](src/main/docker/) folder to launch required third party services.
-
-For example, to start required services in Docker containers, run:
+La respuesta incluye el `id` generado. Sustituir `1001` en los ejemplos siguientes por el ID obtenido, o definirlo de esta manera:
 
 ```bash
-docker compose -f src/main/docker/services.yml up -d
+ID=1001  # cambiar por el ID real
 ```
 
-To stop and remove the containers, run:
+### Consultar un producto
 
 ```bash
-docker compose -f src/main/docker/services.yml down
+curl -i "http://localhost:8080/api/productos/$ID" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-[Spring Docker Compose Integration](https://docs.spring.io/spring-boot/reference/features/dev-services.html) is enabled by default. It's possible to disable it in `application.yml`:
-
-```yaml
-spring:
-  ...
-  docker:
-    compose:
-      enabled: false
-```
-
-You can also fully dockerize your application and all the services that it depends on.
-To achieve this, first build a Docker image of your app by running:
+### Actualizar un producto
 
 ```bash
-npm run java:docker
+curl -i -X PUT "http://localhost:8080/api/productos/$ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"id\":$ID,\"nombre\":\"Cuaderno grande\",\"precio\":3200.00}"
 ```
 
-Or build an arm64 Docker image when using an arm64 processor OS, i.e., Apple Silicon chips (M*), running:
+### Buscar un producto inexistente (genera un `WARN`)
 
 ```bash
-npm run java:docker:arm64
+curl -i http://localhost:8080/api/productos/99999999 \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-Then run:
+Esta búsqueda devuelve `404` y genera un mensaje similar a `Producto inexistente: id=99999999`.
+
+### Eliminar un producto
 
 ```bash
-docker compose -f src/main/docker/app.yml up -d
+curl -i -X DELETE "http://localhost:8080/api/productos/$ID" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-For more information refer to [Docker and Docker-Compose](https://www.jhipster.tech/documentation-archive/v9.4.0/docker-compose/), this page also contains information on the Docker Compose sub-generator (`jhipster docker-compose`), which is able to generate Docker configurations for one or several JHipster applications.
+Las operaciones del CRUD generan eventos `DEBUG`, `INFO` y `WARN`. Los eventos `ERROR` de prueba permiten comprobar la alerta configurada en Kibana. Para consultar los registros localmente:
 
-## Continuous Integration (optional)
+```bash
+tail -n 10 logs/jhipster.json
+```
 
-To configure CI for your project, run the ci-cd sub-generator (`jhipster ci-cd`), this will let you generate configuration files for a number of Continuous Integration systems. Consult the [Setting up Continuous Integration](https://www.jhipster.tech/documentation-archive/v9.4.0/setting-up-ci/) page for more information.
-
-## References
-
-- [JHipster Homepage and latest documentation](https://www.jhipster.tech/)
-- [JHipster 9.4.0 archive](https://www.jhipster.tech/documentation-archive/v9.4.0)
-- [Using JHipster in development](https://www.jhipster.tech/documentation-archive/v9.4.0/development/)
-- [Using Docker and Docker-Compose](https://www.jhipster.tech/documentation-archive/v9.4.0/docker-compose)
-- [Using JHipster in production](https://www.jhipster.tech/documentation-archive/v9.4.0/production/)
-- [Running tests page](https://www.jhipster.tech/documentation-archive/v9.4.0/running-tests/)
-- [Code quality page](https://www.jhipster.tech/documentation-archive/v9.4.0/code-quality/)
-- [Setting up Continuous Integration](https://www.jhipster.tech/documentation-archive/v9.4.0/setting-up-ci/)
-- [Node.js](https://nodejs.org/)
-- [NPM](https://www.npmjs.com/)
+> Los logs no deben incluir contraseñas, tokens JWT ni datos personales innecesarios. El nivel `DEBUG` se utiliza solamente en desarrollo.

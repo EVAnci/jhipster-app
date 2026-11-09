@@ -155,3 +155,4 @@ coverage/
 ### ---
 
 logs/
+/observability/.env

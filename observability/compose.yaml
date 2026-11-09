@@ -51,6 +51,26 @@ services:
         max-size: "10m"
         max-file: "2"
 
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.5.6
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      NODE_OPTIONS: "--max-old-space-size=768"
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:?Falta KIBANA_ENCRYPTION_KEY}
+    mem_limit: 1536m
+    ports:
+      - "127.0.0.1:5601:5601"
+    volumes:
+      - kibana-data:/usr/share/kibana/data
+    depends_on:
+      - elasticsearch
+    restart: "no"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
+
 volumes:
   es-data:
   filebeat-data:
+  kibana-data:

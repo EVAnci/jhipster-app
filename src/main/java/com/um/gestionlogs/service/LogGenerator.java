@@ -17,5 +17,8 @@ public class LogGenerator {
         log.info("Aplicacion iniciada correctamente");
         log.warn("Advertencia de prueba");
         log.error("Error simulado para pruebas");
+        // for (int i = 1; i <= 6; i++) {
+        //     log.error("Error simulado para prueba de alerta ELK: evento {}", i);
+        // }
     }
 }
